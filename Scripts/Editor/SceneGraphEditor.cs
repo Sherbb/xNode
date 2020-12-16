@@ -53,7 +53,7 @@ namespace XNodeEditor {
                     GUI.color = Color.white;
                 }
             }
-			DrawDefaultInspector();
+            base.OnInspectorGUI();
         }
 
         private void OnEnable() {

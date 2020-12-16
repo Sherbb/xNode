@@ -81,8 +81,6 @@ namespace XNodeEditor {
                 graphEditor.OnWindowFocus();
                 if (NodeEditorPreferences.GetSettings().autoSave) AssetDatabase.SaveAssets();
             }
-            
-            dragThreshold = Math.Max(1f, Screen.width / 1000f);
         }
         
         void OnLostFocus() {
@@ -99,7 +97,7 @@ namespace XNodeEditor {
         private static void OnSelectionChanged() {
             XNode.NodeGraph nodeGraph = Selection.activeObject as XNode.NodeGraph;
             if (nodeGraph && !AssetDatabase.Contains(nodeGraph)) {
-                if (NodeEditorPreferences.GetSettings().openOnCreate) Open(nodeGraph);
+                Open(nodeGraph);
             }
         }
 

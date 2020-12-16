@@ -17,7 +17,7 @@ namespace XNodeEditor {
 
         /// <summary> Called when opened by NodeEditorWindow </summary>
         public virtual void OnOpen() { }
-
+        
         /// <summary> Called when NodeEditorWindow gains focus </summary>
         public virtual void OnWindowFocus() { }
 
@@ -125,7 +125,7 @@ namespace XNodeEditor {
         /// <param name="output"> The output this noodle comes from. Never null. </param>
         /// <param name="input"> The output this noodle comes from. Can be null if we are dragging the noodle. </param>
         public virtual float GetNoodleThickness(XNode.NodePort output, XNode.NodePort input) {
-            return NodeEditorPreferences.GetSettings().noodleThickness;
+            return 3f;
         }
 
         public virtual NoodlePath GetNoodlePath(XNode.NodePort output, XNode.NodePort input) {
@@ -139,12 +139,6 @@ namespace XNodeEditor {
         /// <summary> Returned color is used to color ports </summary>
         public virtual Color GetPortColor(XNode.NodePort port) {
             return GetTypeColor(port.ValueType);
-        }
-
-        /// <summary> The returned color is used to color the background of the door.
-        /// Usually used for outer edge effect </summary>
-        public virtual Color GetPortBackgroundColor(XNode.NodePort port) {
-            return Color.gray;
         }
 
         /// <summary> Returns generated color for a type. This color is editable in preferences </summary>
@@ -173,8 +167,11 @@ namespace XNodeEditor {
         public virtual XNode.Node CreateNode(Type type, Vector2 position) {
             Undo.RecordObject(target, "Create Node");
             XNode.Node node = target.AddNode(type);
-            Undo.RegisterCreatedObjectUndo(node, "Create Node");
             node.position = position;
+
+
+            Undo.RegisterCreatedObjectUndo(node, "Create Node");
+            
             if (node.name == null || node.name.Trim() == "") node.name = NodeEditorUtilities.NodeDefaultName(type);
             if (!string.IsNullOrEmpty(AssetDatabase.GetAssetPath(target))) AssetDatabase.AddObjectToAsset(node, target);
             if (NodeEditorPreferences.GetSettings().autoSave) AssetDatabase.SaveAssets();

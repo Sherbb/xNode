@@ -1,11 +1,9 @@
-using UnityEditor;
+﻿using UnityEditor;
 using UnityEngine;
 
 namespace XNodeEditor {
     /// <summary> Utility for renaming assets </summary>
     public class RenamePopup : EditorWindow {
-        private const string inputControlName = "nameInput";
-
         public static RenamePopup current { get; private set; }
         public Object target;
         public string input;
@@ -21,6 +19,7 @@ namespace XNodeEditor {
             window.input = target.name;
             window.minSize = new Vector2(100, 44);
             window.position = new Rect(0, 0, width, 44);
+            GUI.FocusControl("ClearAllFocus");
             window.UpdatePositionToMouse();
             return window;
         }
@@ -44,9 +43,7 @@ namespace XNodeEditor {
                 UpdatePositionToMouse();
                 firstFrame = false;
             }
-            GUI.SetNextControlName(inputControlName);
             input = EditorGUILayout.TextField(input);
-            EditorGUI.FocusTextInControl(inputControlName);
             Event e = Event.current;
             // If input is empty, revert name to default instead
             if (input == null || input.Trim() == "") {
@@ -70,14 +67,6 @@ namespace XNodeEditor {
                     target.TriggerOnValidate();
                 }
             }
-
-            if (e.isKey && e.keyCode == KeyCode.Escape) {
-                Close();
-            }
-        }
-
-        private void OnDestroy() {
-            EditorGUIUtility.editingTextField = false;
         }
     }
 }

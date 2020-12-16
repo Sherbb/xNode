@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
@@ -16,6 +17,8 @@ namespace XNodeEditor {
         /// <summary> Executed after all other window GUI. Useful if Zoom is ruining your day. Automatically resets after being run.</summary>
         public event Action onLateGUI;
         private static readonly Vector3[] polyLineTempArray = new Vector3[2];
+
+        private Vector2 lastMouseMove;
 
         protected virtual void OnGUI() {
             Event e = Event.current;
@@ -112,11 +115,6 @@ namespace XNodeEditor {
         /// <summary> Show right-click context menu for hovered port </summary>
         void ShowPortContextMenu(XNode.NodePort hoveredPort) {
             GenericMenu contextMenu = new GenericMenu();
-            foreach (var port in hoveredPort.GetConnections()) {
-                var name = port.node.name;
-                var index = hoveredPort.GetConnectionIndex(port);
-                contextMenu.AddItem(new GUIContent($"Disconnect({name})"), false, () => hoveredPort.Disconnect(index));
-            }
             contextMenu.AddItem(new GUIContent("Clear Connections"), false, () => hoveredPort.ClearConnections());
             contextMenu.DropDown(new Rect(Event.current.mousePosition, Vector2.zero));
             if (NodeEditorPreferences.GetSettings().autoSave) AssetDatabase.SaveAssets();
@@ -139,6 +137,7 @@ namespace XNodeEditor {
             polyLineTempArray[1].x = p1.x;
             polyLineTempArray[1].y = p1.y;
             Handles.DrawAAPolyLine(thickness, polyLineTempArray);
+            
         }
 
         /// <summary> Draw a bezier from output to input in grid coordinates </summary>
@@ -147,10 +146,10 @@ namespace XNodeEditor {
             for (int i = 0; i < gridPoints.Count; ++i)
                 gridPoints[i] = GridToWindowPosition(gridPoints[i]);
 
-            Color originalHandlesColor = Handles.color;
             Handles.color = gradient.Evaluate(0f);
             int length = gridPoints.Count;
             switch (path) {
+
                 case NoodlePath.Curvy:
                     Vector2 outputTangent = Vector2.right;
                     for (int i = 0; i < length - 1; i++) {
@@ -180,7 +179,7 @@ namespace XNodeEditor {
                         Vector2 tangent_a = point_a + outputTangent * zoomCoef;
                         Vector2 tangent_b = point_b + inputTangent * zoomCoef;
                         // Hover effect.
-                        int division = Mathf.RoundToInt(.2f * dist_ab) + 3;
+                        int division = Mathf.RoundToInt(.2f * dist_ab) + 3;//here
                         // Coloring and bezier drawing.
                         int draw = 0;
                         Vector2 bezierPrevious = point_a;
@@ -218,6 +217,7 @@ namespace XNodeEditor {
                             if (draw > 0) {
                                 if (i == length - 2) Handles.color = gradient.Evaluate(t);
                                 DrawAAPolyLineNonAlloc(thickness, prev_point, lerp);
+
                             }
                             prev_point = lerp;
                             if (stroke == NoodleStroke.Dashed && draw >= 2) draw = -2;
@@ -275,6 +275,9 @@ namespace XNodeEditor {
                     }
                     break;
                 case NoodlePath.ShaderLab:
+
+                    
+
                     Vector2 start = gridPoints[0];
                     Vector2 end = gridPoints[length - 1];
                     //Modify first and last point in array so we can loop trough them nicely.
@@ -282,9 +285,31 @@ namespace XNodeEditor {
                     gridPoints[length - 1] = gridPoints[length - 1] + Vector2.left * (20 / zoom);
                     //Draw first vertical lines going out from nodes
                     Handles.color = gradient.Evaluate(0f);
-                    DrawAAPolyLineNonAlloc(thickness, start, gridPoints[0]);
-                    Handles.color = gradient.Evaluate(1f);
-                    DrawAAPolyLineNonAlloc(thickness, end, gridPoints[length - 1]);
+                    //DrawAAPolyLineNonAlloc(thickness, start, gridPoints[0]);
+                    Vector2 midPoint = ((gridPoints[0]+Vector2.right*(5/zoom))+(gridPoints[length-1]+Vector2.left*(5/zoom)))/2;
+                    Vector2 startBez = CalculateBezierPoint(gridPoints[0],midPoint,gridPoints[0]+Vector2.right*(25/zoom),(gridPoints[0]+midPoint)/2f,.1f);
+                    Vector3 endBez = CalculateBezierPoint(gridPoints[length-1],midPoint,gridPoints[length-1]+Vector2.left*(25/zoom),(gridPoints[length-1]+midPoint)/2f,.1f);
+
+                    //draw the bendy parts
+                    Handles.DrawBezier((gridPoints[0]+start)/2,startBez,new Vector2(((gridPoints[0].x+startBez.x)/2+gridPoints[0].x)/2,gridPoints[0].y),gridPoints[0],gradient.Evaluate(0f),null,thickness);
+                    //2nd bendy
+                    Handles.DrawBezier((gridPoints[length-1]+end)/2,endBez,new Vector2(((gridPoints[length-1].x+endBez.x)/2+gridPoints[length-1].x)/2,gridPoints[length-1].y),gridPoints[length-1],gradient.Evaluate(0f),null,thickness);
+
+
+                    //Handles.DrawBezier(end,endBez,gridPoints[length-1]+Vector2.left*(25/zoom),gridPoints[length-1]+Vector2.left*(20/zoom),gradient.Evaluate(0f),null,thickness);
+
+                    //draw the middle
+                    Handles.DrawBezier(startBez,endBez,startBez,endBez,gradient.Evaluate(0f),null,thickness);
+
+                    //draw the roots
+                    Handles.DrawBezier(start,(gridPoints[0]+start)/2,start,(gridPoints[0]+start)/2,gradient.Evaluate(0f),null,thickness);
+                    Handles.DrawBezier(end,(gridPoints[length-1]+end)/2,end,(gridPoints[length-1]+end)/2,gradient.Evaluate(0f),null,thickness);
+                    //Handles.color = gradient.Evaluate(1f);
+                    //DrawAAPolyLineNonAlloc(thickness, end, gridPoints[length - 1]);
+
+                    //Handles.DrawBezier(gridPoints[0],gridPoints[length-1],gridPoints[0]+Vector2.right*(20/zoom),gridPoints[length-1]+Vector2.left*(20/zoom),gradient.Evaluate(0f),null,thickness);
+
+                    /*
                     for (int i = 0; i < length - 1; i++) {
                         Vector2 point_a = gridPoints[i];
                         Vector2 point_b = gridPoints[i + 1];
@@ -304,14 +329,15 @@ namespace XNodeEditor {
                                 DrawAAPolyLineNonAlloc(thickness, prev_point, lerp);
                             }
                             prev_point = lerp;
-                            if (stroke == NoodleStroke.Dashed && draw >= 2) draw = -2;
+                            if (stroke == NoodleStroke.Dashed && draw >= 1) draw = -1;
                         }
-                    }
+                    }*/
+
+
                     gridPoints[0] = start;
                     gridPoints[length - 1] = end;
                     break;
             }
-            Handles.color = originalHandlesColor;
         }
 
         /// <summary> Draws all connections </summary>
@@ -354,7 +380,17 @@ namespace XNodeEditor {
                         gridPoints.Add(fromRect.center);
                         gridPoints.AddRange(reroutePoints);
                         gridPoints.Add(toRect.center);
-                        DrawNoodle(noodleGradient, noodlePath, noodleStroke, noodleThickness, gridPoints);
+
+
+                        float tempT = noodleThickness;
+
+                        
+                        if (output.ValueType.ToString() == "BehaviorNode")
+                        {
+                            tempT *=1.25f;
+                        }
+
+                        DrawNoodle(noodleGradient, noodlePath, noodleStroke, tempT, gridPoints);
 
                         // Loop through reroute points again and draw the points
                         for (int i = 0; i < reroutePoints.Count; i++) {
@@ -475,7 +511,14 @@ namespace XNodeEditor {
 
                 //Draw node contents
                 nodeEditor.OnHeaderGUI();
+
+                //if (zoom < 2)
+                //{
                 nodeEditor.OnBodyGUI();
+
+                //}
+
+
 
                 //If user changed a value, notify other scripts through onUpdateNode
                 if (EditorGUI.EndChangeCheck()) {
@@ -536,8 +579,8 @@ namespace XNodeEditor {
             if (e.type != EventType.Layout && currentActivity == NodeActivity.DragGrid) Selection.objects = preSelection.ToArray();
             EndZoomed(position, zoom, topPadding);
 
-            //If a change in is detected in the selected node, call OnValidate method.
-            //This is done through reflection because OnValidate is only relevant in editor,
+            //If a change in is detected in the selected node, call OnValidate method. 
+            //This is done through reflection because OnValidate is only relevant in editor, 
             //and thus, the code should not be included in build.
             if (onValidate != null && EditorGUI.EndChangeCheck()) onValidate.Invoke(Selection.activeObject, null);
         }
@@ -556,22 +599,16 @@ namespace XNodeEditor {
         }
 
         private void DrawTooltip() {
-            if (!NodeEditorPreferences.GetSettings().portTooltips || graphEditor == null)
-                return;
-            string tooltip = null;
-            if (hoveredPort != null) {
-                tooltip = graphEditor.GetPortTooltip(hoveredPort);
+            if (hoveredPort != null && NodeEditorPreferences.GetSettings().portTooltips && graphEditor != null) {
+                string tooltip = graphEditor.GetPortTooltip(hoveredPort);
+                if (string.IsNullOrEmpty(tooltip)) return;
+                GUIContent content = new GUIContent(tooltip);
+                Vector2 size = NodeEditorResources.styles.tooltip.CalcSize(content);
+                size.x += 8;
+                Rect rect = new Rect(Event.current.mousePosition - (size), size);
+                EditorGUI.LabelField(rect, content, NodeEditorResources.styles.tooltip);
+                Repaint();
             }
-            else if (hoveredNode != null && IsHoveringNode && IsHoveringTitle(hoveredNode)) {
-                tooltip = NodeEditor.GetEditor(hoveredNode, this).GetHeaderTooltip();
-            }
-            if (string.IsNullOrEmpty(tooltip)) return;
-            GUIContent content = new GUIContent(tooltip);
-            Vector2 size = NodeEditorResources.styles.tooltip.CalcSize(content);
-            size.x += 8;
-            Rect rect = new Rect(Event.current.mousePosition - (size), size);
-            EditorGUI.LabelField(rect, content, NodeEditorResources.styles.tooltip);
-            Repaint();
         }
     }
 }
